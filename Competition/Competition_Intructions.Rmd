@@ -69,29 +69,211 @@ load_processed<- load%>%
           Day = day(Date))%>%
   mutate(demand_daily = rowMeans(across(h1:h24)))%>%
   select(Date, Year, Month, Day, demand_daily)
+
+load_processed$demand_daily<-na.approx(load_processed$demand_daily)
 ```
-
-
 
 ## CREATE A TIME SERIES OBJECT
 
 After you process your dataset use the `msts()` function to create a time series object. You need to use `msts()` instead of `ts()` because your daily data will have more than one seasonal component.
 
+```{r}
+ts_daily_demand<- msts(load_processed$demand_daily, 
+                           seasonal.periods =c(7,365.25),
+                           start=c(2005,01,01))
+
+ts_daily_demand%>% mstl()%>% autoplot()
+
+```
+
+
 ## FIT MODELS TO YOUR DATA
 
 Fit models to your dataset considering the period Jan 1st 2005 to Dec 31st 2009. 
 
-## FORECAST DAILY DEMAND FOR 2010 
+```{r}
+#create a subset for training purpose
+n_for = 365
+ts_daily_demand_train <- subset(ts_daily_demand,
+                                   end = length(ts_daily_demand)-n_for)
 
+#create a subset for testing purpose
+ts_daily_demand_test <- subset(ts_daily_demand,
+                                   start = length(ts_daily_demand)-n_for)
+
+autoplot(ts_daily_demand_train)
+autoplot(ts_daily_demand_test)
+```
+
+### Model 1: STL + ETS
+
+```{r}
+#Fit and forecast STL + ETS model to data
+ETS_fit <-  stlf(ts_daily_demand_train,h=365)
+
+#Plot foresting results
+autoplot(ETS_fit) + ylab("Demand")
+
+#Plot model + observed data
+autoplot(ts_daily_demand) +
+  autolayer(ETS_fit, series="STL + ETS",PI=FALSE) +
+  ylab("Demand")
+
+```
+
+### Model 2: ARIMA + FOURIER terms
+
+```{r ARIMA, echo=TRUE, message=FALSE, warning=FALSE}
+#Fit arima model with fourier terms as exogenous regressors
+ARIMA_Four_fit <- auto.arima(ts_daily_demand_train, 
+                             seasonal=FALSE, 
+                             lambda=0,
+                             xreg=fourier(ts_daily_demand_train, 
+                                          K=c(3,12))
+                             )
+
+#Forecast with ARIMA fit
+#also need to specify h for fourier terms
+ARIMA_Four_for <- forecast(ARIMA_Four_fit,
+                           xreg=fourier(ts_daily_demand_train,
+                                        K=c(3,12),
+                                        h=365),
+                           h=365
+                           ) 
+
+#Plot foresting results
+autoplot(ARIMA_Four_for) + ylab("Active Power")
+
+#Plot model + observed data
+autoplot(ts_daily_demand) +
+  autolayer(ARIMA_Four_for, series="ARIMA_FOURIER",PI=FALSE) +
+  ylab("Demand")
+
+```
+## FORECAST DAILY DEMAND FOR 2010 
 Using the models from previous section, forecast daily demand for the period Jan 1st 2010 to Feb 28 2010. Based on the models you developed which model(s) is(are) generating good forecast? 
+
+
 
 ## FORECAST DAILY DEMAND FOR 2011
 
 Just for the good model(s) you will **re-run** the model but now using the entire dataset (2005-2010) for model fitting and forecast Jan 1st 2011 to Feb 28 2011.
 
+```{r}
+#Fit and forecast STL + ETS model to data
+ETS_fit2 <-  stlf(ts_daily_demand,h=59)
+
+#Plot foresting results
+autoplot(ETS_fit2) + ylab("Demand")
+```
+
+```{r}
+#Forecast with ARIMA fit
+ARIMA_Four_fit2 <- auto.arima(ts_daily_demand, 
+                             seasonal=FALSE, 
+                             lambda=0,
+                             xreg=fourier(ts_daily_demand, 
+                                          K=c(3,12))
+                             )
+#also need to specify h for fourier terms
+ARIMA_Four_for_jantofeb2 <- forecast(ARIMA_Four_fit2,
+                           xreg=fourier(ts_daily_demand,
+                                        K=c(3,12),
+                                        h=59),
+                           h=59
+                           ) 
+
+
+#Plot foresting results
+autoplot(ARIMA_Four_for_jantofeb2) + ylab("Demand")
+
+#Plot model + observed data
+autoplot(ts_daily_demand) +
+  autolayer(ARIMA_Four_for_jantofeb2, series="ARIMA_FOURIER",PI=FALSE) +
+  ylab("Demand")
+```
+
+```{r NNETAR, echo=TRUE, message=FALSE, warning=FALSE}
+#You can play with the different values for p and P, you can also use xreg with Fourier term to model the multiple seasonality
+
+#NN_fit <- nnetar(ts_act_power_daily_train,p=1,P=1)
+NN_fit <- nnetar(ts_daily_demand,p=1,P=0,xreg=fourier(ts_daily_demand, K=c(2,12)))
+
+#NN_for <- forecast(NN_fit, h=365) 
+NN_for <- forecast(NN_fit, h=59,xreg=fourier(ts_daily_demand, 
+                                          K=c(2,12),h=59))
+
+#Plot foresting results
+autoplot(NN_for) +
+  ylab("Active Power") 
+```
+
+```{r NNETAR, echo=TRUE, message=FALSE, warning=FALSE}
+#You can play with the different values for p and P, you can also use xreg with Fourier term to model the multiple seasonality
+
+#NN_fit <- nnetar(ts_act_power_daily_train,p=1,P=1)
+NN_fit2 <- nnetar(ts_daily_demand,p=1,P=1,xreg=fourier(ts_daily_demand, K=c(2,12)))
+
+#NN_for <- forecast(NN_fit, h=365) 
+NN_for2 <- forecast(NN_fit, h=59,xreg=fourier(ts_daily_demand, 
+                                          K=c(2,12),h=59))
+
+#Plot foresting results
+autoplot(NN_for2) +
+  ylab("Active Power") 
+```
+
+```{r TBATS, echo=TRUE, message=FALSE, warning=FALSE}
+# TBATS can take time to fit
+TBATS_fit <- tbats(ts_daily_demand)
+
+TBATS_for <- forecast(TBATS_fit, h=59)
+
+#Plot foresting results
+autoplot(TBATS_for) +
+  ylab("Active Power") 
+```
 ## CREATE AN EXCEL FILE WITH FORECAST
 
 Look at the excel file in your Output folder name "submission_template.csv". You will need to create your own output file with forecast for January 2011. Your file needs to be in the format of the submission template. If your forecast is a probability distribution function, consider the mean to be the point forecast.
+
+##model 1
+```{r}
+janfeb<- read_excel("./Competition/Output/submission_template.xlsx")
+janfeb<- janfeb%>%
+  mutate(load=as.matrix(ETS_fit2$mean))%>%
+  select(date, load)
+
+write.csv(janfeb, file = "./Competition/Output/model1.csv", row.names = FALSE)
+```
+
+##model 2
+```{r}
+janfeb2<- read_excel("./Competition/Output/submission_template.xlsx")
+janfeb2<- janfeb%>%
+  mutate(load=as.matrix(ARIMA_Four_for_jantofeb2$mean))%>%
+  select(date, load)
+
+write.csv(janfeb2, file = "./Competition/Output/model2.csv", row.names = FALSE)
+```
+
+##model 3
+```{r}
+janfeb3<- janfeb%>%
+  mutate(load=as.matrix(NN_for$mean))%>%
+  select(date, load)
+
+write.csv(janfeb3, file = "./Competition/Output/model3.csv", row.names = FALSE)
+```
+##model 4
+```{r}
+janfeb4<- janfeb%>%
+  mutate(load=as.matrix(TBATS_for$mean))%>%
+  select(date, load)
+
+write.csv(janfeb4, file = "./Competition/Output/model4.csv", row.names = FALSE)
+```
+
 
 ## LOAD TEMPLATE IN KAGGLE
 
