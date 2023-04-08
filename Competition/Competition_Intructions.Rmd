@@ -53,6 +53,7 @@ library(readxl)
 ```{r}
 getwd()
 load<- read_excel("./Competition/Data/load.xlsx")
+temperature<- read_excel("./Competition/Data/temperature.xlsx")
 ```
 
 ## WRANGLE/PROCESS THE DATASET
@@ -62,6 +63,7 @@ You will need to transform hourly data into daily data. See the Rmd file from Le
 Note that I provided hourly data. You shoudl take teh **average** of the 24 hours to obtain the daily load.
 
 ```{r}
+#wrangle demand data
 load_processed<- load%>%
   mutate(Date = ymd(date))%>%
   mutate( Year = year(Date), 
@@ -71,6 +73,24 @@ load_processed<- load%>%
   select(Date, Year, Month, Day, demand_daily)
 
 load_processed$demand_daily<-na.approx(load_processed$demand_daily)
+
+#wrangle temp data
+temperature_processed<- temperature%>%
+  mutate(Date = ymd(date))%>%
+  mutate(hourly_mean_temp= rowMeans(across(t_ws1:t_ws28)))%>%
+  select(Date, hourly_mean_temp)%>%
+  group_by(Date)%>%
+  summarise(mean(hourly_mean_temp))
+
+
+load_processed2<- load%>%
+  mutate(Date = ymd(date))%>%
+  mutate(column = (1:2191))%>%
+  select(column, h1:h24)
+
+load_longer<- load_processed2 %>%
+  pivot_longer(!column, names_to = "hour", values_to = "demand")
+?pivot_longer
 ```
 
 ## CREATE A TIME SERIES OBJECT
@@ -84,6 +104,12 @@ ts_daily_demand<- msts(load_processed$demand_daily,
 
 ts_daily_demand%>% mstl()%>% autoplot()
 
+ts_temperature<- ts(temperature_processed$`mean(hourly_mean_temp)`, frequency = 365, start = c(2005,01,01))
+
+
+ts_daily_demand2<- msts(load_processed$demand_daily, 
+                           seasonal.periods =c(7,52.1429),
+                           start=c(2005,01,01))
 ```
 
 
@@ -103,7 +129,12 @@ ts_daily_demand_test <- subset(ts_daily_demand,
 
 autoplot(ts_daily_demand_train)
 autoplot(ts_daily_demand_test)
+autoplot(ts_temperature)
 ```
+
+
+## FORECAST DAILY DEMAND FOR 2010 
+Using the models from previous section, forecast daily demand for the period Jan 1st 2010 to Feb 28 2010. Based on the models you developed which model(s) is(are) generating good forecast? 
 
 ### Model 1: STL + ETS
 
@@ -116,7 +147,7 @@ autoplot(ETS_fit) + ylab("Demand")
 
 #Plot model + observed data
 autoplot(ts_daily_demand) +
-  autolayer(ETS_fit, series="STL + ETS",PI=FALSE) +
+  autolayer(ETS_fit, series="STL + ETS",PI=FALSE)+
   ylab("Demand")
 
 ```
@@ -124,19 +155,23 @@ autoplot(ts_daily_demand) +
 ### Model 2: ARIMA + FOURIER terms
 
 ```{r ARIMA, echo=TRUE, message=FALSE, warning=FALSE}
+
+demand_fourier<- fourier(ts_daily_demand, 
+                                          K=c(1,1))
+temp_fourier<- fourier(ts_temperature, K=3)
+
+
 #Fit arima model with fourier terms as exogenous regressors
 ARIMA_Four_fit <- auto.arima(ts_daily_demand_train, 
                              seasonal=FALSE, 
                              lambda=0,
-                             xreg=fourier(ts_daily_demand_train, 
-                                          K=c(3,12))
-                             )
+                             xreg=cbind(demand_fourier, temp_fourier))
 
 #Forecast with ARIMA fit
 #also need to specify h for fourier terms
 ARIMA_Four_for <- forecast(ARIMA_Four_fit,
                            xreg=fourier(ts_daily_demand_train,
-                                        K=c(3,12),
+                                        K=c(2,4),
                                         h=365),
                            h=365
                            ) 
@@ -150,10 +185,6 @@ autoplot(ts_daily_demand) +
   ylab("Demand")
 
 ```
-## FORECAST DAILY DEMAND FOR 2010 
-Using the models from previous section, forecast daily demand for the period Jan 1st 2010 to Feb 28 2010. Based on the models you developed which model(s) is(are) generating good forecast? 
-
-
 
 ## FORECAST DAILY DEMAND FOR 2011
 
@@ -173,12 +204,12 @@ ARIMA_Four_fit2 <- auto.arima(ts_daily_demand,
                              seasonal=FALSE, 
                              lambda=0,
                              xreg=fourier(ts_daily_demand, 
-                                          K=c(3,12))
+                                          K=c(2,12))
                              )
 #also need to specify h for fourier terms
 ARIMA_Four_for_jantofeb2 <- forecast(ARIMA_Four_fit2,
                            xreg=fourier(ts_daily_demand,
-                                        K=c(3,12),
+                                        K=c(2,12),
                                         h=59),
                            h=59
                            ) 
@@ -212,14 +243,127 @@ autoplot(NN_for) +
 #You can play with the different values for p and P, you can also use xreg with Fourier term to model the multiple seasonality
 
 #NN_fit <- nnetar(ts_act_power_daily_train,p=1,P=1)
-NN_fit2 <- nnetar(ts_daily_demand,p=1,P=1,xreg=fourier(ts_daily_demand, K=c(2,12)))
+NN_fit2 <- nnetar(ts_daily_demand,p=1,P=0,xreg=fourier(ts_daily_demand, K=c(2,2)))
 
 #NN_for <- forecast(NN_fit, h=365) 
-NN_for2 <- forecast(NN_fit, h=59,xreg=fourier(ts_daily_demand, 
-                                          K=c(2,12),h=59))
+NN_for2 <- forecast(NN_fit2, h=59,xreg=fourier(ts_daily_demand, 
+                                          K=c(2,2),h=59))
 
 #Plot foresting results
 autoplot(NN_for2) +
+  ylab("Active Power") 
+```
+
+```{r NNETAR, echo=TRUE, message=FALSE, warning=FALSE}
+#You can play with the different values for p and P, you can also use xreg with Fourier term to model the multiple seasonality
+
+#NN_fit <- nnetar(ts_act_power_daily_train,p=1,P=1)
+NN_fit3 <- nnetar(ts_daily_demand,p=1,P=0,xreg=fourier(ts_daily_demand, K=c(2,4)))
+
+#NN_for <- forecast(NN_fit, h=365) 
+NN_for3 <- forecast(NN_fit3, h=59,xreg=fourier(ts_daily_demand, 
+                                          K=c(2,4),h=59))
+
+#Plot foresting results
+autoplot(NN_for3) +
+  ylab("Active Power") 
+```
+
+
+```{r NNETAR, echo=TRUE, message=FALSE, warning=FALSE}
+#You can play with the different values for p and P, you can also use xreg with Fourier term to model the multiple seasonality
+
+#NN_fit <- nnetar(ts_act_power_daily_train,p=1,P=1)
+NN_fit4 <- nnetar(ts_daily_demand,p=1,P=0,xreg=fourier(ts_daily_demand, K=c(1,1)))
+
+#NN_for <- forecast(NN_fit, h=365) 
+NN_for4 <- forecast(NN_fit4, h=59,xreg=fourier(ts_daily_demand, 
+                                          K=c(1,1),h=59))
+
+#Plot foresting results
+autoplot(NN_for4) +
+  ylab("Active Power") 
+```
+
+```{r NNETAR, echo=TRUE, message=FALSE, warning=FALSE}
+#You can play with the different values for p and P, you can also use xreg with Fourier term to model the multiple seasonality
+
+fourier<- cbind(demand_fourier,temp_fourier)
+#NN_fit <- nnetar(ts_act_power_daily_train,p=1,P=1)
+NN_fit5 <- nnetar(ts_daily_demand,p=1,P=0,xreg=fourier)
+
+#NN_for <- forecast(NN_fit, h=365) 
+NN_for5 <- forecast(NN_fit5, h=59,xreg=(fourier))
+
+NN_data<-as.matrix(NN_for5$mean)
+NN_For<-NN_data[1:59,]
+
+#Plot foresting results
+autoplot(NN_) +
+  ylab("Active Power") 
+```
+
+
+```{r NNETAR, echo=TRUE, message=FALSE, warning=FALSE}
+#You can play with the different values for p and P, you can also use xreg with Fourier term to model the multiple seasonality
+
+fourierandtemp<- cbind(demand_fourier,temperature_processed$`mean(hourly_mean_temp)`)
+#NN_fit <- nnetar(ts_act_power_daily_train,p=1,P=1)
+NN_fit6 <- nnetar(ts_daily_demand,p=1,P=0,xreg=fourierandtemp)
+
+#NN_for <- forecast(NN_fit, h=365) 
+NN_for6 <- forecast(NN_fit6, h=59,xreg=(fourierandtemp))
+
+NN_data_for6<-as.matrix(NN_for6$mean)
+NN_for6_data<-NN_data_for6[1:59,]
+
+#Plot foresting results
+autoplot(NN_for6) +
+  ylab("Active Power") 
+```
+
+```{r NNETAR, echo=TRUE, message=FALSE, warning=FALSE}
+#You can play with the different values for p and P, you can also use xreg with Fourier term to model the multiple seasonality
+
+#NN_fit <- nnetar(ts_act_power_daily_train,p=1,P=1)
+NN_fit7 <- nnetar(ts_daily_demand,p=2,P=0,xreg=fourier(ts_daily_demand, K=c(1,1)))
+
+#NN_for <- forecast(NN_fit, h=365) 
+NN_for7 <- forecast(NN_fit7, h=59,xreg=fourier(ts_daily_demand, 
+                                          K=c(1,1),h=59))
+
+#Plot foresting results
+autoplot(NN_for7) +
+  ylab("Active Power") 
+```
+
+```{r NNETAR, echo=TRUE, message=FALSE, warning=FALSE}
+#You can play with the different values for p and P, you can also use xreg with Fourier term to model the multiple seasonality
+
+#NN_fit <- nnetar(ts_act_power_daily_train,p=1,P=1)
+NN_fit8 <- nnetar(ts_daily_demand2,p=1,P=0,xreg=fourier(ts_daily_demand, K=c(1,1)))
+
+#NN_for <- forecast(NN_fit, h=365) 
+NN_for8 <- forecast(NN_fit8, h=59,xreg=fourier(ts_daily_demand, 
+                                          K=c(1,1),h=59))
+
+#Plot foresting results
+autoplot(NN_for7) +
+  ylab("Active Power") 
+```
+
+```{r NNETAR, echo=TRUE, message=FALSE, warning=FALSE}
+#You can play with the different values for p and P, you can also use xreg with Fourier term to model the multiple seasonality
+
+#NN_fit <- nnetar(ts_act_power_daily_train,p=1,P=1)
+NN_fit9 <- nnetar(ts_daily_demand,p=1,P=0,xreg=fourier(ts_daily_demand, K=c(1,2)))
+
+#NN_for <- forecast(NN_fit, h=365) 
+NN_for9 <- forecast(NN_fit9, h=59,xreg=fourier(ts_daily_demand, 
+                                          K=c(1,2),h=59))
+
+#Plot foresting results
+autoplot(NN_for9) +
   ylab("Active Power") 
 ```
 
@@ -274,6 +418,86 @@ janfeb4<- janfeb%>%
 write.csv(janfeb4, file = "./Competition/Output/model4.csv", row.names = FALSE)
 ```
 
+##model 5
+```{r}
+model5<- cbind(janfeb4, janfeb3)
+
+model5<- model5[,2:4]
+
+model5<- model5%>%
+  rename(TBATS = "load", date= "date", NN="load.1")
+
+model5<-model5%>%
+  select(date, TBATS, NN)%>%
+  mutate(load=rowMeans(across(TBATS:NN)))%>%
+  select(date, load)
+
+write.csv(model5, file = "./Competition/Output/model5.csv", row.names = FALSE)
+```
+
+##model 6
+```{r}
+janfeb5<- janfeb%>%
+  mutate(load=as.matrix(NN_for2$mean))%>%
+  select(date, load)
+
+write.csv(janfeb5, file = "./Competition/Output/model6.csv", row.names = FALSE)
+```
+
+##model 7
+```{r}
+janfeb6<- janfeb%>%
+  mutate(load=as.matrix(NN_for3$mean))%>%
+  select(date, load)
+
+write.csv(janfeb6, file = "./Competition/Output/model7.csv", row.names = FALSE)
+```
+
+
+##model 8
+```{r}
+janfeb7<- janfeb%>%
+  mutate(load=as.matrix(NN_for4$mean))%>%
+  select(date, load)
+
+write.csv(janfeb7, file = "./Competition/Output/model9.csv", row.names = FALSE)
+```
+
+##model 10
+```{r}
+janfeb8<- janfeb%>%
+  mutate(load=NN_For)%>%
+  select(date, load)
+
+write.csv(janfeb8, file = "./Competition/Output/model10.csv", row.names = FALSE)
+```
+
+##model 11
+```{r}
+janfeb9<- janfeb%>%
+  mutate(load=as.matrix(NN_for7$mean))%>%
+  select(date, load)
+
+write.csv(janfeb9, file = "./Competition/Output/model11.csv", row.names = FALSE)
+```
+
+##model 12
+```{r}
+janfeb10<- janfeb%>%
+  mutate(load=as.matrix(NN_for8$mean))%>%
+  select(date, load)
+
+write.csv(janfeb10, file = "./Competition/Output/model12.csv", row.names = FALSE)
+```
+
+##model 13
+```{r}
+janfeb11<- janfeb%>%
+  mutate(load=as.matrix(NN_for9$mean))%>%
+  select(date, load)
+
+write.csv(janfeb11, file = "./Competition/Output/model13.csv", row.names = FALSE)
+```
 
 ## LOAD TEMPLATE IN KAGGLE
 
