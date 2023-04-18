@@ -164,22 +164,20 @@ autoplot(ts_daily_demand) +
 
 ```{r ARIMA, echo=TRUE, message=FALSE, warning=FALSE}
 
-demand_fourier<- fourier(ts_daily_demand, 
-                                          K=c(1,1))
-temp_fourier<- fourier(ts_temperature, K=3)
-
 
 #Fit arima model with fourier terms as exogenous regressors
 ARIMA_Four_fit <- auto.arima(ts_daily_demand_train, 
                              seasonal=FALSE, 
                              lambda=0,
-                             xreg=cbind(demand_fourier, temp_fourier))
+                             xreg=fourier(ts_daily_demand_train, 
+                                          K=c(2,12))
+                             )
 
 #Forecast with ARIMA fit
 #also need to specify h for fourier terms
 ARIMA_Four_for <- forecast(ARIMA_Four_fit,
                            xreg=fourier(ts_daily_demand_train,
-                                        K=c(2,4),
+                                        K=c(2,12),
                                         h=365),
                            h=365
                            ) 
