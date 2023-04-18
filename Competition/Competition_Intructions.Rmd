@@ -1,6 +1,6 @@
 ---
-title: "TSA: Forecasting Competition Instructions"
-author: "Luana Lima"
+title: "TSA: Forecasting Competition"
+author: "Taro Katayama Miaojun Pang"
 output: pdf_document
 always_allow_html: true
 editor_options: 
@@ -40,17 +40,15 @@ knitr::opts_chunk$set(echo = TRUE,tidy.opts=list(width.cutoff=80), tidy=FALSE)
 library(lubridate)
 library(ggplot2)
 library(forecast)  
-library(Kendall)
 library(tseries)
 library(outliers)
 library(tidyverse)
-library(smooth)
-library(zoo)
-library(kableExtra)
 library(readxl)
+library(zoo)
 ```
 
 ```{r}
+#load data
 getwd()
 load<- read_excel("./Competition/Data/load.xlsx")
 temperature<- read_excel("./Competition/Data/temperature.xlsx")
@@ -104,6 +102,7 @@ load_longer<-load_longer%>%
 After you process your dataset use the `msts()` function to create a time series object. You need to use `msts()` instead of `ts()` because your daily data will have more than one seasonal component.
 
 ```{r}
+#Daily time series
 ts_daily_demand<- msts(load_processed$demand_daily, 
                            seasonal.periods =c(7,365.25),
                            start=c(2005,01,01))
@@ -112,7 +111,7 @@ ts_daily_demand%>% mstl()%>% autoplot()
 
 ts_temperature<- ts(temperature_processed$`mean(hourly_mean_temp)`, frequency = 365, start = c(2005,01,01))
 
-
+#Hourly Time Series
 ts_hourly_demand<- msts(load_longer$demand, 
                            seasonal.periods =c(24,168,8766),
                            start=c(2005,01,01))
@@ -152,7 +151,7 @@ Using the models from previous section, forecast daily demand for the period Jan
 ETS_fit <-  stlf(ts_daily_demand_train,h=365)
 
 #Plot foresting results
-autoplot(ETS_fit) + ylab("Demand")
+autoplot(ETS_fit)
 
 #Plot model + observed data
 autoplot(ts_daily_demand) +
@@ -190,15 +189,14 @@ autoplot(ARIMA_Four_for) + ylab("Active Power")
 
 #Plot model + observed data
 autoplot(ts_daily_demand) +
-  autolayer(ARIMA_Four_for, series="ARIMA_FOURIER",PI=FALSE) +
-  ylab("Demand")
+  autolayer(ARIMA_Four_for, series="ARIMA_FOURIER",PI=FALSE)
 
 ```
 
 ## FORECAST DAILY DEMAND FOR 2011
 
 Just for the good model(s) you will **re-run** the model but now using the entire dataset (2005-2010) for model fitting and forecast Jan 1st 2011 to Feb 28 2011.
-
+###ETS
 ```{r}
 #Fit and forecast STL + ETS model to data
 ETS_fit2 <-  stlf(ts_daily_demand,h=59)
@@ -206,7 +204,7 @@ ETS_fit2 <-  stlf(ts_daily_demand,h=59)
 #Plot foresting results
 autoplot(ETS_fit2) + ylab("Demand")
 ```
-
+###Arima with fourier
 ```{r}
 #Forecast with ARIMA fit
 ARIMA_Four_fit2 <- auto.arima(ts_daily_demand, 
@@ -232,11 +230,10 @@ autoplot(ts_daily_demand) +
   autolayer(ARIMA_Four_for_jantofeb2, series="ARIMA_FOURIER",PI=FALSE) +
   ylab("Demand")
 ```
-
+###Neural Network 1
+##for the Neural Network, we are changing the K values.
 ```{r NNETAR, echo=TRUE, message=FALSE, warning=FALSE}
-#You can play with the different values for p and P, you can also use xreg with Fourier term to model the multiple seasonality
 
-#NN_fit <- nnetar(ts_act_power_daily_train,p=1,P=1)
 NN_fit <- nnetar(ts_daily_demand,p=1,P=0,xreg=fourier(ts_daily_demand, K=c(2,12)))
 
 #NN_for <- forecast(NN_fit, h=365) 
@@ -247,11 +244,9 @@ NN_for <- forecast(NN_fit, h=59,xreg=fourier(ts_daily_demand,
 autoplot(NN_for) +
   ylab("Active Power") 
 ```
-
+###Neural Network 2
 ```{r NNETAR, echo=TRUE, message=FALSE, warning=FALSE}
-#You can play with the different values for p and P, you can also use xreg with Fourier term to model the multiple seasonality
 
-#NN_fit <- nnetar(ts_act_power_daily_train,p=1,P=1)
 NN_fit2 <- nnetar(ts_daily_demand,p=1,P=0,xreg=fourier(ts_daily_demand, K=c(2,2)))
 
 #NN_for <- forecast(NN_fit, h=365) 
@@ -262,11 +257,8 @@ NN_for2 <- forecast(NN_fit2, h=59,xreg=fourier(ts_daily_demand,
 autoplot(NN_for2) +
   ylab("Active Power") 
 ```
-
+###Neural Network 3
 ```{r NNETAR, echo=TRUE, message=FALSE, warning=FALSE}
-#You can play with the different values for p and P, you can also use xreg with Fourier term to model the multiple seasonality
-
-#NN_fit <- nnetar(ts_act_power_daily_train,p=1,P=1)
 NN_fit3 <- nnetar(ts_daily_demand,p=1,P=0,xreg=fourier(ts_daily_demand, K=c(2,4)))
 
 #NN_for <- forecast(NN_fit, h=365) 
@@ -278,11 +270,8 @@ autoplot(NN_for3) +
   ylab("Active Power") 
 ```
 
-
+###Neural Network 4 (2nd best model)
 ```{r NNETAR, echo=TRUE, message=FALSE, warning=FALSE}
-#You can play with the different values for p and P, you can also use xreg with Fourier term to model the multiple seasonality
-
-#NN_fit <- nnetar(ts_act_power_daily_train,p=1,P=1)
 NN_fit4 <- nnetar(ts_daily_demand,p=1,P=0,xreg=fourier(ts_daily_demand, K=c(1,1)))
 
 #NN_for <- forecast(NN_fit, h=365) 
@@ -293,10 +282,8 @@ NN_for4 <- forecast(NN_fit4, h=59,xreg=fourier(ts_daily_demand,
 autoplot(NN_for4) +
   ylab("Active Power") 
 ```
-
+###Neural Network 5 Tried creating fourier with temp
 ```{r NNETAR, echo=TRUE, message=FALSE, warning=FALSE}
-#You can play with the different values for p and P, you can also use xreg with Fourier term to model the multiple seasonality
-
 fourier<- cbind(demand_fourier,temp_fourier)
 #NN_fit <- nnetar(ts_act_power_daily_train,p=1,P=1)
 NN_fit5 <- nnetar(ts_daily_demand,p=1,P=0,xreg=fourier)
@@ -312,10 +299,8 @@ autoplot(NN_for5) +
   ylab("Active Power") 
 ```
 
-
+###Neural Network 6 Tried using fourier with temp a different way
 ```{r NNETAR, echo=TRUE, message=FALSE, warning=FALSE}
-#You can play with the different values for p and P, you can also use xreg with Fourier term to model the multiple seasonality
-
 load_temp<- data.frame(load_processed$Date, load_processed$demand_daily, temperature_processed$`mean(hourly_mean_temp)`)
 
 
@@ -332,11 +317,8 @@ NN_for6_data<-NN_data_for6[1:59,]
 autoplot(NN_for6) +
   ylab("Active Power") 
 ```
-
+###Neural Network 7 changed p value
 ```{r NNETAR, echo=TRUE, message=FALSE, warning=FALSE}
-#You can play with the different values for p and P, you can also use xreg with Fourier term to model the multiple seasonality
-
-#NN_fit <- nnetar(ts_act_power_daily_train,p=1,P=1)
 NN_fit7 <- nnetar(ts_daily_demand,p=2,P=0,xreg=fourier(ts_daily_demand, K=c(1,1)))
 
 #NN_for <- forecast(NN_fit, h=365) 
@@ -348,28 +330,8 @@ autoplot(NN_for7) +
   ylab("Active Power") 
 ```
 
+###Neural Network 8 with different K value
 ```{r NNETAR, echo=TRUE, message=FALSE, warning=FALSE}
-#You can play with the different values for p and P, you can also use xreg with Fourier term to model the multiple seasonality
-
-#NN_fit <- nnetar(ts_act_power_daily_train,p=1,P=1)
-NN_fit8 <- nnetar(ts_daily_demand,p=1,P=0,xreg=fourier(ts_daily_demand2, K=c(1,1)))
-
-#NN_for <- forecast(NN_fit, h=365) 
-NN_for8 <- forecast(NN_fit8, h=59,xreg=fourier(ts_daily_demand2, 
-                                          K=c(1,1),h=59))
-
-#Plot foresting results
-autoplot(NN_for8) +
-  ylab("Active Power") 
-```
-
-
-
-
-```{r NNETAR, echo=TRUE, message=FALSE, warning=FALSE}
-#You can play with the different values for p and P, you can also use xreg with Fourier term to model the multiple seasonality
-
-#NN_fit <- nnetar(ts_act_power_daily_train,p=1,P=1)
 NN_fit9 <- nnetar(ts_daily_demand,p=1,P=0,xreg=fourier(ts_daily_demand, K=c(1,2)))
 
 #NN_for <- forecast(NN_fit, h=365) 
@@ -381,11 +343,12 @@ autoplot(NN_for9) +
   ylab("Active Power") 
 ```
 
+###Neural Network 9 with different P value
 ```{r NNETAR, echo=TRUE, message=FALSE, warning=FALSE}
 #You can play with the different values for p and P, you can also use xreg with Fourier term to model the multiple seasonality
 
 #NN_fit <- nnetar(ts_act_power_daily_train,p=1,P=1)
-NN_fit10 <- nnetar(ts_daily_demand,p=,P=1,xreg=fourier(ts_daily_demand, K=c(1,1)))
+NN_fit10 <- nnetar(ts_daily_demand,p=1,P=1,xreg=fourier(ts_daily_demand, K=c(1,1)))
 
 #NN_for <- forecast(NN_fit, h=365) 
 NN_for10 <- forecast(NN_fit10, h=59,xreg=fourier(ts_daily_demand, 
@@ -396,7 +359,7 @@ autoplot(NN_for10) +
   ylab("Active Power") 
 ```
 
-##hourly NN
+##Neural Network 10 with hourly data!
 ##winner winner chicken dinner
 ```{r}
 #You can play with the different values for p and P, you can also use xreg with Fourier term to model the multiple seasonality
@@ -429,8 +392,7 @@ autoplot(NN_for12) +
   ylab("Active Power") 
 ```
 
-
-
+###TBATS
 ```{r TBATS, echo=TRUE, message=FALSE, warning=FALSE}
 # TBATS can take time to fit
 TBATS_fit <- tbats(ts_daily_demand)
