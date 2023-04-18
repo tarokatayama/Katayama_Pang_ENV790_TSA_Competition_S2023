@@ -50,8 +50,8 @@ library(zoo)
 ```{r}
 #load data
 getwd()
-load<- read_excel("./Competition/Data/load.xlsx")
-temperature<- read_excel("./Competition/Data/temperature.xlsx")
+load<- read_excel("../Competition/Data/load.xlsx")
+temperature<- read_excel("../Competition/Data/temperature.xlsx")
 ```
 
 ## WRANGLE/PROCESS THE DATASET
@@ -230,7 +230,7 @@ autoplot(ts_daily_demand) +
 ```
 ###Neural Network 1
 ##for the Neural Network, we are changing the K values.
-```{r NNETAR, echo=TRUE, message=FALSE, warning=FALSE}
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
 
 NN_fit <- nnetar(ts_daily_demand,p=1,P=0,xreg=fourier(ts_daily_demand, K=c(2,12)))
 
@@ -243,7 +243,7 @@ autoplot(NN_for) +
   ylab("Active Power") 
 ```
 ###Neural Network 2
-```{r NNETAR, echo=TRUE, message=FALSE, warning=FALSE}
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
 
 NN_fit2 <- nnetar(ts_daily_demand,p=1,P=0,xreg=fourier(ts_daily_demand, K=c(2,2)))
 
@@ -256,7 +256,7 @@ autoplot(NN_for2) +
   ylab("Active Power") 
 ```
 ###Neural Network 3
-```{r NNETAR, echo=TRUE, message=FALSE, warning=FALSE}
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
 NN_fit3 <- nnetar(ts_daily_demand,p=1,P=0,xreg=fourier(ts_daily_demand, K=c(2,4)))
 
 #NN_for <- forecast(NN_fit, h=365) 
@@ -269,7 +269,7 @@ autoplot(NN_for3) +
 ```
 
 ###Neural Network 4 (2nd best model)
-```{r NNETAR, echo=TRUE, message=FALSE, warning=FALSE}
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
 NN_fit4 <- nnetar(ts_daily_demand,p=1,P=0,xreg=fourier(ts_daily_demand, K=c(1,1)))
 
 #NN_for <- forecast(NN_fit, h=365) 
@@ -280,43 +280,9 @@ NN_for4 <- forecast(NN_fit4, h=59,xreg=fourier(ts_daily_demand,
 autoplot(NN_for4) +
   ylab("Active Power") 
 ```
-###Neural Network 5 Tried creating fourier with temp
-```{r NNETAR, echo=TRUE, message=FALSE, warning=FALSE}
-fourier<- cbind(demand_fourier,temp_fourier)
-#NN_fit <- nnetar(ts_act_power_daily_train,p=1,P=1)
-NN_fit5 <- nnetar(ts_daily_demand,p=1,P=0,xreg=fourier)
 
-#NN_for <- forecast(NN_fit, h=365) 
-NN_for5 <- forecast(NN_fit5, h=59,xreg=(fourier))
-
-NN_data<-as.matrix(NN_for5$mean)
-NN_For<-NN_data[1:59,]
-
-#Plot foresting results
-autoplot(NN_for5) +
-  ylab("Active Power") 
-```
-
-###Neural Network 6 Tried using fourier with temp a different way
-```{r NNETAR, echo=TRUE, message=FALSE, warning=FALSE}
-load_temp<- data.frame(load_processed$Date, load_processed$demand_daily, temperature_processed$`mean(hourly_mean_temp)`)
-
-
-#NN_fit <- nnetar(ts_act_power_daily_train,p=1,P=1)
-NN_fit6 <- nnetar(ts_daily_demand,p=1,P=0,xreg=fourier(ts_daily_demand))
-
-#NN_for <- forecast(NN_fit, h=365) 
-NN_for6 <- forecast(NN_fit6, h=59,xreg=(fourierandtemp))
-
-NN_data_for6<-as.matrix(NN_for6$mean)
-NN_for6_data<-NN_data_for6[1:59,]
-
-#Plot foresting results
-autoplot(NN_for6) +
-  ylab("Active Power") 
-```
 ###Neural Network 7 changed p value
-```{r NNETAR, echo=TRUE, message=FALSE, warning=FALSE}
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
 NN_fit7 <- nnetar(ts_daily_demand,p=2,P=0,xreg=fourier(ts_daily_demand, K=c(1,1)))
 
 #NN_for <- forecast(NN_fit, h=365) 
@@ -329,7 +295,7 @@ autoplot(NN_for7) +
 ```
 
 ###Neural Network 8 with different K value
-```{r NNETAR, echo=TRUE, message=FALSE, warning=FALSE}
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
 NN_fit9 <- nnetar(ts_daily_demand,p=1,P=0,xreg=fourier(ts_daily_demand, K=c(1,2)))
 
 #NN_for <- forecast(NN_fit, h=365) 
@@ -342,7 +308,7 @@ autoplot(NN_for9) +
 ```
 
 ###Neural Network 9 with different P value
-```{r NNETAR, echo=TRUE, message=FALSE, warning=FALSE}
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
 #You can play with the different values for p and P, you can also use xreg with Fourier term to model the multiple seasonality
 
 #NN_fit <- nnetar(ts_act_power_daily_train,p=1,P=1)
@@ -374,24 +340,8 @@ autoplot(NN_for11) +
   ylab("Active Power") 
 ```
 
-##hourly NN 2
-```{r}
-#You can play with the different values for p and P, you can also use xreg with Fourier term to model the multiple seasonality
-
-#NN_fit <- nnetar(ts_act_power_daily_train,p=1,P=1)
-NN_fit12 <- nnetar(ts_hourly_demand,p=1,P=1,xreg=fourier(ts_hourly_demand, K=c(2,2,2)))
-
-#NN_for <- forecast(NN_fit, h=365) 
-NN_for12 <- forecast(NN_fit12, h=59,xreg=fourier(ts_hourly_demand, 
-                                          K=c(2,2,2),h=59))
-
-#Plot foresting results
-autoplot(NN_for12) +
-  ylab("Active Power") 
-```
-
 ###TBATS
-```{r TBATS, echo=TRUE, message=FALSE, warning=FALSE}
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
 # TBATS can take time to fit
 TBATS_fit <- tbats(ts_daily_demand)
 
@@ -407,22 +357,22 @@ Look at the excel file in your Output folder name "submission_template.csv". You
 
 ##model 1
 ```{r}
-janfeb<- read_excel("./Competition/Output/submission_template.xlsx")
+janfeb<- read_excel("../Competition/Output/submission_template.xlsx")
 janfeb<- janfeb%>%
   mutate(load=as.matrix(ETS_fit2$mean))%>%
   select(date, load)
 
-write.csv(janfeb, file = "./Competition/Output/model1.csv", row.names = FALSE)
+write.csv(janfeb, file = "../Competition/Output/model1.csv", row.names = FALSE)
 ```
 
 ##model 2
 ```{r}
-janfeb2<- read_excel("./Competition/Output/submission_template.xlsx")
+janfeb2<- read_excel("../Competition/Output/submission_template.xlsx")
 janfeb2<- janfeb%>%
   mutate(load=as.matrix(ARIMA_Four_for_jantofeb2$mean))%>%
   select(date, load)
 
-write.csv(janfeb2, file = "./Competition/Output/model2.csv", row.names = FALSE)
+write.csv(janfeb2, file = "../Competition/Output/model2.csv", row.names = FALSE)
 ```
 
 ##model 3
@@ -431,7 +381,7 @@ janfeb3<- janfeb%>%
   mutate(load=as.matrix(NN_for$mean))%>%
   select(date, load)
 
-write.csv(janfeb3, file = "./Competition/Output/model3.csv", row.names = FALSE)
+write.csv(janfeb3, file = "../Competition/Output/model3.csv", row.names = FALSE)
 ```
 ##model 4
 ```{r}
@@ -439,7 +389,7 @@ janfeb4<- janfeb%>%
   mutate(load=as.matrix(TBATS_for$mean))%>%
   select(date, load)
 
-write.csv(janfeb4, file = "./Competition/Output/model4.csv", row.names = FALSE)
+write.csv(janfeb4, file = "../Competition/Output/model4.csv", row.names = FALSE)
 ```
 
 ##model 5
@@ -456,7 +406,7 @@ model5<-model5%>%
   mutate(load=rowMeans(across(TBATS:NN)))%>%
   select(date, load)
 
-write.csv(model5, file = "./Competition/Output/model5.csv", row.names = FALSE)
+write.csv(model5, file = "../Competition/Output/model5.csv", row.names = FALSE)
 ```
 
 ##model 6
@@ -465,7 +415,7 @@ janfeb5<- janfeb%>%
   mutate(load=as.matrix(NN_for2$mean))%>%
   select(date, load)
 
-write.csv(janfeb5, file = "./Competition/Output/model6.csv", row.names = FALSE)
+write.csv(janfeb5, file = "../Competition/Output/model6.csv", row.names = FALSE)
 ```
 
 ##model 7
@@ -474,7 +424,7 @@ janfeb6<- janfeb%>%
   mutate(load=as.matrix(NN_for3$mean))%>%
   select(date, load)
 
-write.csv(janfeb6, file = "./Competition/Output/model7.csv", row.names = FALSE)
+write.csv(janfeb6, file = "../Competition/Output/model7.csv", row.names = FALSE)
 ```
 
 
@@ -484,16 +434,16 @@ janfeb7<- janfeb%>%
   mutate(load=as.matrix(NN_for4$mean))%>%
   select(date, load)
 
-write.csv(janfeb7, file = "./Competition/Output/model9.csv", row.names = FALSE)
+write.csv(janfeb7, file = "../Competition/Output/model9.csv", row.names = FALSE)
 ```
 
 ##model 10
 ```{r}
-janfeb8<- janfeb%>%
-  mutate(load=NN_For)%>%
-  select(date, load)
+#janfeb8<- janfeb%>%
+  #mutate(load=NN_For)%>%
+  #select(date, load)
 
-write.csv(janfeb8, file = "./Competition/Output/model10.csv", row.names = FALSE)
+#write.csv(janfeb8, file = "./Competition/Output/model10.csv", row.names = FALSE)
 ```
 
 ##model 11
@@ -502,16 +452,16 @@ janfeb9<- janfeb%>%
   mutate(load=as.matrix(NN_for7$mean))%>%
   select(date, load)
 
-write.csv(janfeb9, file = "./Competition/Output/model11.csv", row.names = FALSE)
+write.csv(janfeb9, file = "../Competition/Output/model11.csv", row.names = FALSE)
 ```
 
 ##model 12
 ```{r}
-janfeb10<- janfeb%>%
-  mutate(load=as.matrix(NN_for8$mean))%>%
-  select(date, load)
+#janfeb10<- janfeb%>%
+  #mutate(load=as.matrix(NN_for8$mean))%>%
+  #select(date, load)
 
-write.csv(janfeb10, file = "./Competition/Output/model12.csv", row.names = FALSE)
+#write.csv(janfeb10, file = "../Competition/Output/model12.csv", row.names = FALSE)
 ```
 
 ##model 13
@@ -520,7 +470,7 @@ janfeb11<- janfeb%>%
   mutate(load=as.matrix(NN_for9$mean))%>%
   select(date, load)
 
-write.csv(janfeb11, file = "./Competition/Output/model13.csv", row.names = FALSE)
+write.csv(janfeb11, file = "../Competition/Output/model13.csv", row.names = FALSE)
 ```
 
 ##model 14
@@ -529,7 +479,7 @@ janfeb12<- janfeb%>%
   mutate(load=as.matrix(NN_for10$mean))%>%
   select(date, load)
 
-write.csv(janfeb12, file = "./Competition/Output/model14.csv", row.names = FALSE)
+write.csv(janfeb12, file = "../Competition/Output/model14.csv", row.names = FALSE)
 ```
 
 
@@ -547,7 +497,7 @@ model15<-model15%>%
   mutate(load=rowMeans(across(NN1:NN2)))%>%
   select(date, load)
 
-write.csv(model15, file = "./Competition/Output/model15.csv", row.names = FALSE)
+write.csv(model15, file = "../Competition/Output/model15.csv", row.names = FALSE)
 ```
 
 ##model 16
@@ -556,18 +506,10 @@ janfeb13<- janfeb%>%
   mutate(load=as.matrix(NN_for11$mean))%>%
   select(date, load)
 
-write.csv(janfeb13, file = "./Competition/Output/model17.csv", row.names = FALSE)
+write.csv(janfeb13, file = "../Competition/Output/model17.csv", row.names = FALSE)
 ```
 
 
-##model 17
-```{r}
-janfeb14<- janfeb%>%
-  mutate(load=as.matrix(NN_for12$mean))%>%
-  select(date, load)
-
-write.csv(janfeb13, file = "./Competition/Output/model18.csv", row.names = FALSE)
-```
 ## LOAD TEMPLATE IN KAGGLE
 
 I created a kaggle competition for this assignment. You will need to enter the competition using this [invitation](https://www.kaggle.com/t/ae2a216e3daf4e91ae535183c4005e8b). 
